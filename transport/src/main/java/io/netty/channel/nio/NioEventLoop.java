@@ -115,8 +115,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     /**
      * The NIO {@link Selector}.
      */
-    private Selector selector;
-    private Selector unwrappedSelector;
+    private Selector selector;//被装饰的selector，本质是unwrappedSelector
+    private Selector unwrappedSelector; //serverSocketChannel注册到此处  selector与unwrappedSelector好像是同一个对象
     private SelectedSelectionKeySet selectedKeys;
 
     private final SelectorProvider provider;
@@ -507,6 +507,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             try {
                 int strategy;
                 try {
+                    //有普通任务的话执行selectNowSupplier（Nio的Select操作）返回装备好的key数，没有普通任务返回-1（SELECT）
+                    //Nio任务优先级最高，其次是普通任务和应该被执行的计划任务
                     strategy = selectStrategy.calculateStrategy(selectNowSupplier, hasTasks());
                     switch (strategy) {
                     case SelectStrategy.CONTINUE:
@@ -515,15 +517,15 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     case SelectStrategy.BUSY_WAIT:
                         // fall-through to SELECT since the busy-wait is not supported with NIO
 
-                    case SelectStrategy.SELECT:
-                        long curDeadlineNanos = nextScheduledTaskDeadlineNanos();
+                    case SelectStrategy.SELECT: //没有普通任务
+                        long curDeadlineNanos = nextScheduledTaskDeadlineNanos(); //第一个计划任务的时延
                         if (curDeadlineNanos == -1L) {
-                            curDeadlineNanos = NONE; // nothing on the calendar
+                            curDeadlineNanos = NONE; // nothing on the calendar //没有计划任务
                         }
                         nextWakeupNanos.set(curDeadlineNanos);
                         try {
-                            if (!hasTasks()) {
-                                strategy = select(curDeadlineNanos);
+                            if (!hasTasks()) { //没有普通任务
+                                strategy = select(curDeadlineNanos); //执行nio选择操作
                             }
                         } finally {
                             // This update is just to help block unnecessary selector wakeups
@@ -547,14 +549,14 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 needsToSelectAgain = false;
                 final int ioRatio = this.ioRatio;
                 boolean ranTasks;
-                if (ioRatio == 100) {
+                if (ioRatio == 100) { //执行io任务的占比率为100%
                     try {
-                        if (strategy > 0) {
+                        if (strategy > 0) { //strategy > 0说明有装备好的Nio Key
                             processSelectedKeys();
                         }
                     } finally {
                         // Ensure we always run tasks.
-                        ranTasks = runAllTasks();
+                        ranTasks = runAllTasks(); //执行普通任务和应该被执行的计划任务
                     }
                 } else if (strategy > 0) {
                     final long ioStartTime = System.nanoTime();
@@ -562,8 +564,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                         processSelectedKeys();
                     } finally {
                         // Ensure we always run tasks.
-                        final long ioTime = System.nanoTime() - ioStartTime;
-                        ranTasks = runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
+                        final long ioTime = System.nanoTime() - ioStartTime; //io任务执行的总时间
+                        ranTasks = runAllTasks(ioTime * (100 - ioRatio) / ioRatio); //ioTime * (100 - ioRatio) / ioRatio 计算出普通任务的时间
                     }
                 } else {
                     ranTasks = runAllTasks(0); // This will run the minimum number of tasks
@@ -766,25 +768,25 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             int readyOps = k.readyOps();
             // We first need to call finishConnect() before try to trigger a read(...) or write(...) as otherwise
             // the NIO JDK channel implementation may throw a NotYetConnectedException.
-            if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
+            if ((readyOps & SelectionKey.OP_CONNECT) != 0) { //有连接事件（客户端套接字）
                 // remove OP_CONNECT as otherwise Selector.select(..) will always return without blocking
                 // See https://github.com/netty/netty/issues/924
                 int ops = k.interestOps();
-                ops &= ~SelectionKey.OP_CONNECT;
+                ops &= ~SelectionKey.OP_CONNECT; //取消对OP_CONNECT的关注
                 k.interestOps(ops);
 
                 unsafe.finishConnect();
             }
 
             // Process OP_WRITE first as we may be able to write some queued buffers and so free memory.
-            if ((readyOps & SelectionKey.OP_WRITE) != 0) {
+            if ((readyOps & SelectionKey.OP_WRITE) != 0) { //可写事件
                 // Call forceFlush which will also take care of clear the OP_WRITE once there is nothing left to write
                unsafe.forceFlush();
             }
 
             // Also check for readOps of 0 to workaround possible JDK bug which may otherwise lead
             // to a spin loop
-            if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
+            if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) { //OP_ACCEPT(服务端套接字可接受连接事件)
                 unsafe.read();
             }
         } catch (CancelledKeyException ignored) {

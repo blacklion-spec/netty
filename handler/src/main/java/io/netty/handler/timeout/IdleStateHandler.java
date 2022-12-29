@@ -486,9 +486,9 @@ public class IdleStateHandler extends ChannelDuplexHandler {
 
         @Override
         protected void run(ChannelHandlerContext ctx) {
-            long nextDelay = readerIdleTimeNanos;
-            if (!reading) {
-                nextDelay -= ticksInNanos() - lastReadTime;
+            long nextDelay = readerIdleTimeNanos; //读空闲超时时间
+            if (!reading) { //在此计划任务期间没有发生读
+                nextDelay -= ticksInNanos() - lastReadTime; //读时间间隔
             }
 
             if (nextDelay <= 0) {

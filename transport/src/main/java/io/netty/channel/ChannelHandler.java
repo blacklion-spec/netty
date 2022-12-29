@@ -180,6 +180,7 @@ public interface ChannelHandler {
     /**
      * Gets called after the {@link ChannelHandler} was added to the actual context and it's ready to handle events.
      */
+    //通道在selector上注册之后回调，eventLoop上的selector
     void handlerAdded(ChannelHandlerContext ctx) throws Exception;
 
     /**

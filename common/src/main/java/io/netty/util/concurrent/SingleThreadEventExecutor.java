@@ -75,7 +75,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             AtomicReferenceFieldUpdater.newUpdater(
                     SingleThreadEventExecutor.class, ThreadProperties.class, "threadProperties");
 
-    private final Queue<Runnable> taskQueue;
+    private final Queue<Runnable> taskQueue; //普通任务队列，会包含马上要被执行的执行的计划任务
 
     private volatile Thread thread;
     @SuppressWarnings("unused")
@@ -275,18 +275,18 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             }
         }
     }
-
+    //抓取应该被执行的计划任务到taskQueue
     private boolean fetchFromScheduledTaskQueue() {
         if (scheduledTaskQueue == null || scheduledTaskQueue.isEmpty()) {
             return true;
         }
-        long nanoTime = getCurrentTimeNanos();
+        long nanoTime = getCurrentTimeNanos(); //当前时间与开始时间差
         for (;;) {
             Runnable scheduledTask = pollScheduledTask(nanoTime);
             if (scheduledTask == null) {
                 return true;
             }
-            if (!taskQueue.offer(scheduledTask)) {
+            if (!taskQueue.offer(scheduledTask)) { //
                 // No space left in the task queue add it back to the scheduledTaskQueue so we pick it up again.
                 scheduledTaskQueue.add((ScheduledFutureTask<?>) scheduledTask);
                 return false;
@@ -371,9 +371,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         boolean ranAtLeastOne = false;
 
         do {
-            fetchedAll = fetchFromScheduledTaskQueue();
+            fetchedAll = fetchFromScheduledTaskQueue(); //taskQueue满了会返回false //fetchedAll true：抓取完所有的普通任务
             if (runAllTasksFrom(taskQueue)) {
-                ranAtLeastOne = true;
+                ranAtLeastOne = true; //true说明，至少执行了一个任务
             }
         } while (!fetchedAll); // keep on processing until we fetched all scheduled tasks.
 
@@ -458,8 +458,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     protected boolean runAllTasks(long timeoutNanos) {
         fetchFromScheduledTaskQueue();
         Runnable task = pollTask();
-        if (task == null) {
-            afterRunningAllTasks();
+        if (task == null) { //没有任务
+            afterRunningAllTasks(); //该方法是用于子类扩展的
             return false;
         }
 
@@ -473,9 +473,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
             // Check timeout every 64 tasks because nanoTime() is relatively expensive.
             // XXX: Hard-coded value - will make it configurable if it is really a problem.
-            if ((runTasks & 0x3F) == 0) {
+            if ((runTasks & 0x3F) == 0) { //执行了65个任务检查一次
                 lastExecutionTime = getCurrentTimeNanos();
-                if (lastExecutionTime >= deadline) {
+                if (lastExecutionTime >= deadline) { //当前时间超过了阈值，
                     break;
                 }
             }

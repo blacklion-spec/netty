@@ -56,16 +56,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     @SuppressWarnings("unchecked")
     private static final Map.Entry<AttributeKey<?>, Object>[] EMPTY_ATTRIBUTE_ARRAY = new Map.Entry[0];
 
-    volatile EventLoopGroup group;
+    volatile EventLoopGroup group; //boss group
     @SuppressWarnings("deprecation")
-    private volatile ChannelFactory<? extends C> channelFactory;
+    private volatile ChannelFactory<? extends C> channelFactory; //通道工厂
     private volatile SocketAddress localAddress;
 
     // The order in which ChannelOptions are applied is important they may depend on each other for validation
     // purposes.
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> attrs = new ConcurrentHashMap<AttributeKey<?>, Object>();
-    private volatile ChannelHandler handler;
+    private volatile ChannelHandler handler; //服务端套接字handler
 
     AbstractBootstrap() {
         // Disallow extending from a different package.

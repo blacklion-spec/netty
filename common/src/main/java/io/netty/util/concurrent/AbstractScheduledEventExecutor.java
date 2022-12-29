@@ -155,7 +155,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         assert inEventLoop();
 
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
-        if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) {
+        if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) { //scheduledTask.deadlineNanos() - nanoTime > 0说明还未到达计划任务的时间
             return null;
         }
         scheduledTaskQueue.remove();

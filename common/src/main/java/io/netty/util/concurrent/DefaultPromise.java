@@ -247,7 +247,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
 
         checkDeadLock();
 
-        synchronized (this) {
+        synchronized (this) { //wait()必须放在同步代码块中
             while (!isDone()) {
                 incWaiters();
                 try {
